@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<list xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="419" size="166" unk1="2" unk2="0" unk3="6">
+  <collection compressed="0">
+    <loose countFieldsUnfixed="1" countFields="1" sizeFields="132" sizePadding="0" sizeLookup="0" unk="1">
+      <fields>
+        <field id="1" size="132" unk1="1" unk2="65535">
+          <data>0,1,0,0,1,0,0,0,255,16711680,0,0,86003,1,0,0,0,0,0,0,16843011,0,0,0,0,0,0,0,0,16843009</data>
+        </field>
+      </fields>
+      <padding />
+      <lookup count="0" empty_count="0" reall_count="0">
+        <words />
+      </lookup>
+    </loose>
+    <archive xsi:nil="true" />
+  </collection>
+</list>
