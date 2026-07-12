@@ -360,8 +360,10 @@ namespace LegacyBin
         [XmlAttribute("compressed")]
         public byte compressed;
 
+        [XmlElement("loose", IsNullable = true)]
         public BXML_LOOSE loose;
 
+        [XmlElement("archive", IsNullable = true)]
         public BXML_ARCHIVE archive;
 
         public void Convert(BDAT_COLLECTION list)

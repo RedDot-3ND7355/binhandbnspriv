@@ -53,6 +53,18 @@ namespace LegacyBin
         public bool bIntData = false;
         public static int CurrentFile = 1;
 
+        private void WriteString(BinaryWriter writer, string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                writer.Write((byte)0); // Empty string
+                return;
+            }
+            byte[] bytes = Encoding.UTF8.GetBytes(text);
+            if (bytes.Length > 255) throw new Exception("String too long for 1-byte length");
+            writer.Write((byte)bytes.Length);
+            writer.Write(bytes);
+        }
     }
 
     public class BDAT_ARCHIVE
@@ -141,6 +153,7 @@ namespace LegacyBin
             }
         }
 
+        // New
         public void Read64(BinaryReader br)
         {
             Compressed = br.ReadByte();
@@ -186,6 +199,28 @@ namespace LegacyBin
                 Loose.Write(bw);
             }
         }
+
+        // new 
+        public void Write64(BinaryWriter bw)
+        {
+            bw.Write(Compressed);
+            if (Convert.ToBoolean(Compressed))
+            {
+                if (Compressed > 1)
+                {
+                    bw.BaseStream.Seek(bw.BaseStream.Position - 1, SeekOrigin.Begin);
+                }
+                Archive.Write(bw);
+                if (Compressed > 1)
+                {
+                    bw.Write(Deprecated);
+                }
+            }
+            else
+            {
+                Loose.Write64(bw);
+            }
+        }
     }
 
     public class BDAT_CONTENT
@@ -225,6 +260,7 @@ namespace LegacyBin
 
         public void Read64(BinaryReader br)
         {
+            Form1.CurrentForm.UpdateText("BDAT_CONTENT..."); // status report
             Signature = br.ReadBytes(8);
             Version = br.ReadInt32();
             Unknown = br.ReadBytes(13);
@@ -235,8 +271,10 @@ namespace LegacyBin
             {
                 HeadList.Complement = true;
             }
+            Form1.CurrentForm.UpdateText("BDAT_HEAD..."); // status report
             HeadList.Read64(br);
             Lists = new BDAT_LIST[ListCount];
+            Form1.CurrentForm.UpdateText("BDAT_LIST..."); // status report
             for (int i = 0; i < ListCount; i++)
             {
                 Lists[i] = new BDAT_LIST();
@@ -257,6 +295,7 @@ namespace LegacyBin
             }
         }
 
+        // new
         public void Write64(BinaryWriter bw)
         {
             bw.Write(Signature);
@@ -266,7 +305,7 @@ namespace LegacyBin
             HeadList.Write64(bw);
             for (int i = 0; i < ListCount; i++)
             {
-                Lists[i].Write(bw);
+                Lists[i].Write64(bw);
             }
         }
     }
@@ -484,6 +523,23 @@ namespace LegacyBin
             bw.Write(Size);
             bw.Seek(Size, SeekOrigin.Current);
         }
+
+        // New
+        public void Write64(BinaryWriter bw)
+        {
+            bw.Write(Unknown1);
+            bw.Write(Ultily.WriteIntTo2Bytes(ID));
+            bw.Write(Ultily.WriteIntTo2Bytes(Unknown2));
+            bw.Write(Ultily.WriteIntTo2Bytes(Unknown3));
+            bw.Write(Size);
+            long position = bw.BaseStream.Position;
+            Collection.Write64(bw);
+            long position2 = bw.BaseStream.Position;
+            bw.Seek((int)position - 4, SeekOrigin.Begin);
+            Size = (int)(position2 - position);
+            bw.Write(Size);
+            bw.Seek(Size, SeekOrigin.Current);
+        }
     }
 
     public class BDAT_LOOKUPTABLE
@@ -601,8 +657,8 @@ namespace LegacyBin
                 SizeFields = br.ReadInt32();
                 SizeLookup = br.ReadInt32();
                 Unknown = br.ReadByte();
-                Is64 = true;
             }
+            Is64 = true;
             long num = br.BaseStream.Position + SizeFields;
             Fields = new BDAT_FIELDTABLE[FieldCount];
             long position;
@@ -634,14 +690,37 @@ namespace LegacyBin
 
         public void Write(BinaryWriter bw)
         {
-            if (Is64)
+            bw.Write(FieldCountUnfixed);
+            int num = (int)bw.BaseStream.Position;
+            bw.Write(SizeFields);
+            bw.Write(SizeLookup);
+            bw.Write(Unknown);
+            int num2 = (int)bw.BaseStream.Position;
+            for (int i = 0; i < FieldCount; i++)
             {
-                bw.Write((long)FieldCountUnfixed);
+                Fields[i].Write(bw);
             }
-            else
+            if (SizePadding >= 0)
             {
-                bw.Write(FieldCountUnfixed);
+                if (SizePadding > 0)
+                {
+                    bw.Write(Padding);
+                }
+                SizeFields = (int)bw.BaseStream.Position - num2;
+                Lookup.Size = SizeLookup;
+                Lookup.Write(bw);
+                SizeLookup = (int)bw.BaseStream.Position - num2 - SizeFields;
+                bw.BaseStream.Seek(num, SeekOrigin.Begin);
+                bw.Write(SizeFields);
+                bw.Write(SizeLookup);
+                bw.BaseStream.Seek(1 + SizeFields + SizeLookup, SeekOrigin.Current);
             }
+        }
+
+        // new
+        public void Write64(BinaryWriter bw)
+        {
+            bw.Write((long)FieldCountUnfixed);
             int num = (int)bw.BaseStream.Position;
             bw.Write(SizeFields);
             bw.Write(SizeLookup);

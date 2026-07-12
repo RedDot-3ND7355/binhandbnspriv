@@ -22,6 +22,8 @@ namespace LegacyBin
 
         public static Form1 CurrentForm;
 
+        private static readonly XmlSerializer BxmlListSerializer = new XmlSerializer(typeof(BXML_LIST));
+
         public readonly BDAT_CONTENT _content = new BDAT_CONTENT();
         public BNSDat m_bnsDat;
         public List<BXML_LIST> xml_list = new List<BXML_LIST>();
@@ -99,7 +101,7 @@ namespace LegacyBin
                     };
                     MemoryStream memoryStream = new MemoryStream();
                     XmlWriter xmlWriter = XmlWriter.Create(memoryStream, settings);
-                    new XmlSerializer(typeof(BXML_LIST)).Serialize(xmlWriter, bXML_LIST);
+                    BxmlListSerializer.Serialize(xmlWriter, bXML_LIST);
                     string @string = Encoding.UTF8.GetString(memoryStream.ToArray());
                     string text = $"datafile_{bDAT_LIST.ID:000}.xml";
                     File.WriteAllText(dir + "/" + text, @string, Encoding.UTF8);
