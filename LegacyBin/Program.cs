@@ -20,7 +20,8 @@ namespace LegacyBin
             AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(Program.CurrentDomain_AssemblyResolve);
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new Preload());
+            // Main shell: Unpack/Repack tool; open Bin Editor from the form button
+            Application.Run(new BinEditorForm());
         }
 
         private static Assembly CurrentDomain_AssemblyResolve(object sender, ResolveEventArgs args)

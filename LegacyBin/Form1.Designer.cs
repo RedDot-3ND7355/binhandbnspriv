@@ -123,7 +123,7 @@ namespace LegacyBin
             this.materialLabel1.AutoSize = true;
             this.materialLabel1.Depth = 0;
             this.materialLabel1.Font = new System.Drawing.Font("Roboto", 14F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel);
-            this.materialLabel1.Location = new System.Drawing.Point(12, 155);
+            this.materialLabel1.Location = new System.Drawing.Point(12, 153);
             this.materialLabel1.MouseState = MaterialSkin.MouseState.HOVER;
             this.materialLabel1.Name = "materialLabel1";
             this.materialLabel1.Size = new System.Drawing.Size(53, 19);
@@ -144,7 +144,7 @@ namespace LegacyBin
             this.materialCard1.MouseState = MaterialSkin.MouseState.HOVER;
             this.materialCard1.Name = "materialCard1";
             this.materialCard1.Padding = new System.Windows.Forms.Padding(14);
-            this.materialCard1.Size = new System.Drawing.Size(171, 104);
+            this.materialCard1.Size = new System.Drawing.Size(171, 102);
             this.materialCard1.TabIndex = 7;
             this.materialCard1.Visible = false;
             // 
@@ -155,7 +155,7 @@ namespace LegacyBin
             this.materialButton4.DrawShadows = true;
             this.materialButton4.HighEmphasis = true;
             this.materialButton4.Icon = null;
-            this.materialButton4.Location = new System.Drawing.Point(51, 62);
+            this.materialButton4.Location = new System.Drawing.Point(51, 60);
             this.materialButton4.Margin = new System.Windows.Forms.Padding(4, 6, 4, 6);
             this.materialButton4.MouseState = MaterialSkin.MouseState.HOVER;
             this.materialButton4.Name = "materialButton4";
@@ -172,7 +172,7 @@ namespace LegacyBin
             this.materialLabel3.AutoSize = true;
             this.materialLabel3.Depth = 0;
             this.materialLabel3.Font = new System.Drawing.Font("Roboto", 14F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel);
-            this.materialLabel3.Location = new System.Drawing.Point(31, 38);
+            this.materialLabel3.Location = new System.Drawing.Point(36, 35);
             this.materialLabel3.MouseState = MaterialSkin.MouseState.HOVER;
             this.materialLabel3.Name = "materialLabel3";
             this.materialLabel3.Size = new System.Drawing.Size(106, 19);
@@ -185,7 +185,7 @@ namespace LegacyBin
             this.materialLabel2.Depth = 0;
             this.materialLabel2.Font = new System.Drawing.Font("Roboto Medium", 20F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
             this.materialLabel2.FontType = MaterialSkin.MaterialSkinManager.fontType.H6;
-            this.materialLabel2.Location = new System.Drawing.Point(64, 12);
+            this.materialLabel2.Location = new System.Drawing.Point(67, 5);
             this.materialLabel2.MouseState = MaterialSkin.MouseState.HOVER;
             this.materialLabel2.Name = "materialLabel2";
             this.materialLabel2.Size = new System.Drawing.Size(43, 24);
@@ -194,9 +194,9 @@ namespace LegacyBin
             // 
             // Form1
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(192, 183);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
+            this.ClientSize = new System.Drawing.Size(197, 177);
             this.Controls.Add(this.materialCard1);
             this.Controls.Add(this.materialLabel1);
             this.Controls.Add(this.materialButton3);
@@ -205,9 +205,10 @@ namespace LegacyBin
             this.Controls.Add(this.materialCheckbox1);
             this.MaximizeBox = false;
             this.Name = "Form1";
+            this.Sizable = false;
             this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "Bin Testing Tool";
+            this.Text = "Bin U/R Tool";
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.Form1_FormClosed);
             this.materialCard1.ResumeLayout(false);
             this.materialCard1.PerformLayout();

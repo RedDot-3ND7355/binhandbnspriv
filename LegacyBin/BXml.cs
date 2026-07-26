@@ -510,13 +510,24 @@ namespace LegacyBin
             size = (uint)bfield.Size;
             unk1 = (ushort)bfield.Unknown1;
             unk2 = (ushort)bfield.Unknown2;
-            if (Form1.CurrentForm.materialCheckbox1.Checked)
+            if (bfield.Size >= 12 && bfield.Data != null)
             {
-                data = bcrypt.BytesToInt(bfield.Data, (uint)(bfield.Size - 8));
+                // Payload is Size - 12 (header is unk1/unk2/size/id); helper size args are unused for length
+                uint payloadHint = (uint)Math.Max(0, bfield.Size - 12);
+                bool useInt = BinEditOptions.UseIntData
+                    || (Form1.CurrentForm != null && Form1.CurrentForm.materialCheckbox1.Checked);
+                if (useInt)
+                {
+                    data = bcrypt.BytesToInt(bfield.Data, payloadHint);
+                }
+                else
+                {
+                    data = bcrypt.BytesToHex(bfield.Data, payloadHint);
+                }
             }
-            if (!Form1.CurrentForm.materialCheckbox1.Checked)
+            else
             {
-                data = bcrypt.BytesToHex(bfield.Data, (uint)(bfield.Size - 8));
+                data = string.Empty;
             }
         }
     }
@@ -536,6 +547,14 @@ namespace LegacyBin
 
         public void Convert(BDAT_LOOKUPTABLE bLookup)
         {
+            if (bLookup == null || bLookup.Data == null || bLookup.Size <= 0)
+            {
+                count = 0;
+                empty_count = 0;
+                reall_count = 0;
+                words = new string[0];
+                return;
+            }
             List<string> list = bnsTool.LookupSplitToWords(bLookup.Data, (uint)bLookup.Size);
             count = list.Count;
             words = new string[list.Count];
@@ -547,6 +566,8 @@ namespace LegacyBin
                 if (string.IsNullOrEmpty(list[i]) | (list[i] == "invalidzhangjieyong"))
                 {
                     num++;
+                    // Keep empty slots as empty strings so round-trip preserves word count/indices
+                    words[i] = list[i] ?? string.Empty;
                     continue;
                 }
                 words[i] = list[i];

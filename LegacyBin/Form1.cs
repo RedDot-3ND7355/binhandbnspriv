@@ -29,6 +29,9 @@ namespace LegacyBin
         public List<BXML_LIST> xml_list = new List<BXML_LIST>();
         public bool checkresult;
 
+        /// <summary>Last resolved mode for the open bin (32 vs 64). Used for UI and repack.</summary>
+        private bool _is64BitFile;
+
         public Form1()
         {
             CurrentForm = this;
@@ -49,8 +52,39 @@ namespace LegacyBin
 
         public void UpdateText(string text)
         {
-            materialLabel1.Text = text;
-            materialLabel1.Refresh();
+            if (materialLabel1.InvokeRequired)
+            {
+                materialLabel1.BeginInvoke(new Action(() =>
+                {
+                    materialLabel1.Text = text;
+                    materialLabel1.Refresh();
+                }));
+            }
+            else
+            {
+                materialLabel1.Text = text;
+                materialLabel1.Refresh();
+            }
+        }
+
+        /// <summary>
+        /// Resolve 32/64-bit mode: prefer filename (datafile64.bin / localfile64.bin),
+        /// fall back to header layout detection for renamed files.
+        /// </summary>
+        public static bool ResolveIs64Bit(string filePath, BinaryReader br)
+        {
+            string name = Path.GetFileName(filePath) ?? string.Empty;
+            if (name.IndexOf("64.bin", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+            // Common x64 names without the "64.bin" substring pattern
+            if (name.IndexOf("datafile64", StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("localfile64", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+            return BDAT_CONTENT.DetectIs64Bit(br);
         }
 
         string FilePath = "";
@@ -61,14 +95,23 @@ namespace LegacyBin
             {
                 OpenFileDialog openFileDialog = new OpenFileDialog();
                 openFileDialog.Title = "Search for a bin file";
-                openFileDialog.Filter = "bin files(*.bin)| *.bin";
+                openFileDialog.Filter = "bin files (*.bin)|*.bin|All files (*.*)|*.*";
+                DialogPaths.Apply(openFileDialog);
                 if (openFileDialog.ShowDialog() == DialogResult.OK)
                 {
                     if (File.Exists(openFileDialog.FileName))
                     {
+                        DialogPaths.RememberFile(openFileDialog.FileName);
                         FilePath = openFileDialog.FileName;
                         materialButton2.Enabled = true;
                         materialButton3.Enabled = true;
+                        string name = Path.GetFileName(FilePath);
+                        bool nameLooks64 = name.IndexOf("64.bin", StringComparison.OrdinalIgnoreCase) >= 0
+                            || name.IndexOf("datafile64", StringComparison.OrdinalIgnoreCase) >= 0
+                            || name.IndexOf("localfile64", StringComparison.OrdinalIgnoreCase) >= 0;
+                        UpdateText(nameLooks64
+                            ? "Selected (likely 64-bit): " + name
+                            : "Selected (likely 32-bit): " + name + " — header checked on unpack");
                     }
                 }
             }
@@ -120,6 +163,7 @@ namespace LegacyBin
 
         public void 读取BIN(BinaryReader br, bool is64 = false)
         {
+            _is64BitFile = is64;
             if (is64)
             {
                 _content.Read64(br);
@@ -140,25 +184,38 @@ namespace LegacyBin
                 {
                     Task.Delay(50).ContinueWith(delegate
                     {
-                        using (BDat LegacyBinActor = new BDat())
+                        try
                         {
-                            isBusy = true;
-                            Control.CheckForIllegalCrossThreadCalls = false;
+                            using (BDat LegacyBinActor = new BDat())
+                            {
+                                isBusy = true;
+                                Control.CheckForIllegalCrossThreadCalls = false;
 
-                            UpdateText("Reading bin...");
-                            FileStream fileStream = new FileStream(FilePath, FileMode.Open);
-                            BinaryReader binaryReader = new BinaryReader(fileStream);
-                            OutPath = FilePath + ".files";
-                            读取BIN(binaryReader, FilePath.Contains("64.bin"));
-                            Directory.CreateDirectory(OutPath);
-                            输出保存XML(OutPath);
-                            fileStream.Close();
-                            binaryReader.Close();
-                            UpdateText("GC Cleanup...");
+                                UpdateText("Reading bin...");
+                                using (FileStream fileStream = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                                using (BinaryReader binaryReader = new BinaryReader(fileStream))
+                                {
+                                    OutPath = FilePath + ".files";
+                                    bool is64 = ResolveIs64Bit(FilePath, binaryReader);
+                                    UpdateText(is64 ? "Reading 64-bit bin..." : "Reading 32-bit bin...");
+                                    读取BIN(binaryReader, is64);
+                                    Directory.CreateDirectory(OutPath);
+                                    输出保存XML(OutPath);
+                                }
+                                UpdateText("GC Cleanup...");
+                            }
+                            GC.Collect();
+                            UpdateText("Done! (" + (_is64BitFile ? "64-bit" : "32-bit") + ", " + _content.ListCount + " tables)");
                         }
-                        GC.Collect();
-                        UpdateText("Done!");
-                        isBusy = false;
+                        catch (Exception ex)
+                        {
+                            UpdateText("Error: " + ex.Message);
+                            MessageBox.Show(ex.ToString(), "Unpack failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                        finally
+                        {
+                            isBusy = false;
+                        }
                     });
                 }
             }
@@ -175,19 +232,25 @@ namespace LegacyBin
 
         public void 加载XML(string dir)
         {
+            xml_list.Clear();
             for (int i = 0; i < _content.ListCount; i++)
             {
-                UpdateText("Reading: " + i + "/" + _content.ListCount);
+                UpdateText("Reading XML: " + (i + 1) + "/" + _content.ListCount);
                 BDAT_LIST bDAT_LIST = _content.Lists[i];
                 string text = $"datafile_{bDAT_LIST.ID:000}.xml";
-                string s = File.ReadAllText(dir + "/" + text, Encoding.UTF8);
+                string path = Path.Combine(dir, text);
+                if (!File.Exists(path))
+                {
+                    throw new FileNotFoundException("Missing exported table XML: " + text, path);
+                }
+                string s = File.ReadAllText(path, Encoding.UTF8);
                 BXML_LIST item;
                 using (MemoryStream input = new MemoryStream(Encoding.UTF8.GetBytes(s)))
                 {
                     using (XmlTextReader xmlTextReader = new XmlTextReader(input))
                     {
                         xmlTextReader.Normalization = false;
-                        item = (BXML_LIST)new XmlSerializer(typeof(BXML_LIST)).Deserialize(xmlTextReader);
+                        item = (BXML_LIST)BxmlListSerializer.Deserialize(xmlTextReader);
                     }
                 }
                 xml_list.Add(item);
@@ -198,27 +261,59 @@ namespace LegacyBin
         public void 检查Xml()
         {
             checkresult = true;
+            int mismatches = 0;
             for (int i = 0; i < _content.ListCount; i++)
             {
                 BDAT_LIST bDAT_LIST = _content.Lists[i];
                 for (int j = 0; j < xml_list.Count; j++)
                 {
-                    if (xml_list[j].id == bDAT_LIST.ID)
+                    if (xml_list[j].id != bDAT_LIST.ID)
                     {
+                        continue;
+                    }
+                    try
+                    {
+                        bool ok;
                         if (bDAT_LIST.Collection.Compressed >= 1)
                         {
-                            string text = $"datafile_{bDAT_LIST.ID:000}.xml";
-                            BXML_ARCHIVE archive = xml_list[j].collection.archive;
-                            checkresult = bDAT_LIST.Collection.Archive.Compare(archive);
+                            if (bDAT_LIST.Collection.Archive == null || xml_list[j].collection?.archive == null)
+                            {
+                                ok = false;
+                            }
+                            else
+                            {
+                                ok = bDAT_LIST.Collection.Archive.Compare(xml_list[j].collection.archive);
+                            }
                         }
                         else
                         {
-                            string text2 = $"datafile_{bDAT_LIST.ID:000}.xml";
-                            BXML_LOOSE loose = xml_list[j].collection.loose;
-                            checkresult = bDAT_LIST.Collection.Loose.Compare(loose);
+                            if (bDAT_LIST.Collection.Loose == null || xml_list[j].collection?.loose == null)
+                            {
+                                ok = false;
+                            }
+                            else
+                            {
+                                ok = bDAT_LIST.Collection.Loose.Compare(xml_list[j].collection.loose);
+                            }
+                        }
+                        if (!ok)
+                        {
+                            mismatches++;
+                            checkresult = false;
                         }
                     }
+                    catch (Exception ex)
+                    {
+                        // Never abort the whole repack on a single table compare glitch
+                        mismatches++;
+                        checkresult = false;
+                        Console.WriteLine("Compare failed id=" + bDAT_LIST.ID + ": " + ex.Message);
+                    }
                 }
+            }
+            if (mismatches > 0)
+            {
+                UpdateText("XML verify: " + mismatches + " table(s) differ (continuing repack)...");
             }
         }
 
@@ -253,6 +348,7 @@ namespace LegacyBin
 
         private void 编写BIN(BinaryWriter bw, bool is64)
         {
+            _is64BitFile = is64;
             if (is64)
             {
                 _content.Write64(bw);
@@ -268,39 +364,68 @@ namespace LegacyBin
         {
             if (!isBusy)
             {
+                if (string.IsNullOrEmpty(OutPath))
+                {
+                    OutPath = FilePath + ".files";
+                }
                 if (Directory.Exists(OutPath))
                 {
                     Task.Delay(50).ContinueWith(delegate
                     {
-                        using (BDat LegacyBinActor = new BDat())
+                        try
                         {
-                            isBusy = true;
-                            Control.CheckForIllegalCrossThreadCalls = false;
+                            using (BDat LegacyBinActor = new BDat())
+                            {
+                                isBusy = true;
+                                Control.CheckForIllegalCrossThreadCalls = false;
 
-                            UpdateText("Reading bin...");
-                            FileStream fileStream = new FileStream(FilePath, FileMode.Open);
-                            BinaryReader br = new BinaryReader(fileStream);
-                            读取BIN(br, FilePath.Contains("64.bin"));
-                            UpdateText("Reading xml...");
-                            加载XML(OutPath);
-                            UpdateText("Verifying xml...");
-                            检查Xml();
-                            UpdateText("Updating bin...");
-                            Xml转BIN();
-                            UpdateText("Saving bin...");
-                            fileStream.Close();
-                            FileStream fileStream2 = new FileStream(FilePath, FileMode.Create);
-                            BinaryWriter binaryWriter = new BinaryWriter(fileStream2);
-                            编写BIN(binaryWriter, FilePath.Contains("64.bin"));
-                            binaryWriter.Close();
-                            fileStream2.Close();
-                            fileStream.Close();
-                            Directory.Delete(OutPath, true);
+                                UpdateText("Reading bin...");
+                                bool is64;
+                                using (FileStream fileStream = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                                using (BinaryReader br = new BinaryReader(fileStream))
+                                {
+                                    is64 = ResolveIs64Bit(FilePath, br);
+                                    UpdateText(is64 ? "Reading 64-bit bin..." : "Reading 32-bit bin...");
+                                    读取BIN(br, is64);
+                                }
+
+                                UpdateText("Reading xml...");
+                                加载XML(OutPath);
+                                UpdateText("Verifying xml...");
+                                检查Xml();
+                                UpdateText("Updating bin...");
+                                Xml转BIN();
+                                UpdateText(is64 ? "Saving 64-bit bin..." : "Saving 32-bit bin...");
+
+                                // Write to temp then replace so a failed write does not wipe the original
+                                string tempPath = FilePath + ".tmp";
+                                using (FileStream fileStream2 = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                                using (BinaryWriter binaryWriter = new BinaryWriter(fileStream2))
+                                {
+                                    编写BIN(binaryWriter, is64);
+                                }
+                                File.Copy(tempPath, FilePath, true);
+                                File.Delete(tempPath);
+                                Directory.Delete(OutPath, true);
+                            }
+                            GC.Collect();
+                            UpdateText("Done! Repacked (" + (_is64BitFile ? "64-bit" : "32-bit") + ")");
                         }
-                        GC.Collect();
-                        UpdateText("Done!");
-                        isBusy = false;
+                        catch (Exception ex)
+                        {
+                            UpdateText("Error: " + ex.Message);
+                            MessageBox.Show(ex.ToString(), "Repack failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                        finally
+                        {
+                            isBusy = false;
+                        }
                     });
+                }
+                else
+                {
+                    MessageBox.Show("Unpack folder not found:\n" + OutPath + "\n\nUnpack the bin first, edit the XML, then repack.",
+                        "Repack", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
             else
@@ -309,9 +434,33 @@ namespace LegacyBin
             }
         }
 
+        private void materialButtonEditor_Click(object sender, EventArgs e)
+        {
+            // Reuse an existing editor window if already open
+            foreach (Form f in Application.OpenForms)
+            {
+                if (f is BinEditorForm existing)
+                {
+                    existing.Show();
+                    existing.BringToFront();
+                    if (existing.WindowState == FormWindowState.Minimized)
+                    {
+                        existing.WindowState = FormWindowState.Normal;
+                    }
+                    return;
+                }
+            }
+            var editor = new BinEditorForm();
+            editor.Show(this);
+        }
+
         private void Form1_FormClosed(object sender, FormClosedEventArgs e)
         {
-            Process.GetCurrentProcess().Kill();
+            // Only exit the process when nothing else is open (editor may still be running).
+            if (Application.OpenForms.Count == 0)
+            {
+                Application.Exit();
+            }
         }
     }
 }

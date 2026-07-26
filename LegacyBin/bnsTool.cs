@@ -28,10 +28,18 @@ public class bnsTool
         uint num = 0u;
         uint num2 = 0u;
         List<string> list = new List<string>();
-        uint num3 = 0u;
-        for (; num2 < size; num2 += 2)
+        if (data == null || size == 0)
         {
-            if (data[num2] != 0 || data[(int)(IntPtr)(num2 + 1)] != 0)
+            return list;
+        }
+        if (size > data.Length)
+        {
+            size = (uint)data.Length;
+        }
+        uint num3 = 0u;
+        for (; num2 + 1 < size; num2 += 2)
+        {
+            if (data[num2] != 0 || data[num2 + 1] != 0)
             {
                 continue;
             }
@@ -61,6 +69,10 @@ public class bnsTool
 	{
 		Encoding encoding = new UnicodeEncoding(bigEndian: false, byteOrderMark: false);
 		SizeLookup = 0;
+		if (newWorlds == null || newWorlds.Length == 0)
+		{
+			return new byte[0];
+		}
 		int[] array = new int[newWorlds.Length];
 		for (int i = 0; i < newWorlds.Length; i++)
 		{
@@ -75,7 +87,8 @@ public class bnsTool
 			else
 			{
 				char[] separator = new char[1] { ',' };
-				array[i] = newWorlds[i].Replace("invalidzhangjieyong", string.Empty).Split(separator).Length + 2;
+				string rest = newWorlds[i].Replace("invalidzhangjieyong", string.Empty);
+				array[i] = (string.IsNullOrEmpty(rest) ? 0 : rest.Split(separator).Length) + 2;
 			}
 			SizeLookup += array[i];
 		}

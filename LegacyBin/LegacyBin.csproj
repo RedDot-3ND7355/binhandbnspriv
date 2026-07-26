@@ -75,6 +75,24 @@
   <ItemGroup>
     <Compile Include="bcrypt.cs" />
     <Compile Include="BDat.cs" />
+    <Compile Include="BinEditOptions.cs" />
+    <Compile Include="DialogPaths.cs" />
+    <Compile Include="BinEditorForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="BinEditorForm.Designer.cs">
+      <DependentUpon>BinEditorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="BinSession.cs" />
+    <Compile Include="EditorUndoStack.cs" />
+    <Compile Include="HexBlobForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="LocalfileTranslation.cs" />
+    <Compile Include="TranslateForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UiTheme.cs" />
     <Compile Include="BNSDat.cs" />
     <Compile Include="bnsTool.cs" />
     <Compile Include="BXml.cs" />
