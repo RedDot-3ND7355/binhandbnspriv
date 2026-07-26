@@ -1,6 +1,3 @@
-# binhandbnspriv
+# LegacyBin tool made by Endless
 
-
-## TO DO
-
-### Add 64-bit Bin Support for writing.
+Full documentation inside the LegacyBin folder.
