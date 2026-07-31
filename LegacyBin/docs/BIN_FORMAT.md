@@ -248,11 +248,11 @@ In code, `Is64 == true` means “this loose table used the 8-byte FieldCount for
 
 | Field | Type | Notes |
 |-------|------|--------|
-| `Unknown1` (`unk1`) | `uint16` | If **`255`**, size is stored as `uint16`; else as `int32` |
+| `Unknown1` (`unk1`) | `uint16` | If **`255`**, size is stored as `uint16` |
 | `Unknown2` (`unk2`) | `uint16` | |
-| `Size` | `uint16` or `int32` | Total record size including header (for normal records) |
-| `ID` | `int32` | Present when `Size >= 12` |
-| `Data` | `Size - 12` bytes | Present when `Size >= 12` |
+| `Size` | `uint16` or `int32` | Total record size including header |
+| `ID` | `int32` | Present when body has ≥ 4 bytes |
+| `Data` | remaining body | After ID |
 
 **Read rules:**
 
@@ -263,9 +263,13 @@ if unk1 == 255:
     size = u16          # 6-byte header so far
 else:
     size = i32          # 8-byte header so far
-if size >= 12:
+    # NEO datafile64 compressed records (e.g. types 299/316/351):
+    # size may be uint16 even when unk1 != 255. Detect when i32 size is
+    # negative, > 65535, or larger than the span to the next subarchive offset;
+    # then rewind and re-read size as u16 (header becomes 6 bytes).
+if size >= header+4:
     id = i32
-    data = bytes(size - 12)
+    data = bytes(size - header - 4)
 else:
     data = empty        # still a valid record; Size==0 is an 8-byte placeholder
 ```

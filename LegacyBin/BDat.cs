@@ -397,26 +397,99 @@ namespace LegacyBin
 
         public int ID;
 
+        /// <summary>
+        /// True when Size was stored as uint16 (header is 6 bytes). False when Size was int32 (header is 8 bytes).
+        /// Modern compressed tables sometimes use u16 size even when Unknown1 != 255 (e.g. soul-npc-skill / zoneenv2spawn).
+        /// </summary>
+        public bool SizeStoredAsU16;
+
+        /// <summary>Header bytes before ID/payload: 6 if size is u16, else 8.</summary>
+        public int HeaderSize => SizeStoredAsU16 || Unknown1 == 255 ? 6 : 8;
+
         public void Read(BinaryReader br)
         {
+            Read(br, int.MaxValue);
+        }
+
+        /// <param name="maxRecordBytes">
+        /// Max total record size allowed from the current position (e.g. bytes until next subarchive offset).
+        /// Used to detect u16-sized records that look like huge int32 sizes (high half is start of ID).
+        /// </param>
+        public void Read(BinaryReader br, int maxRecordBytes)
+        {
+            if (maxRecordBytes < 0)
+            {
+                maxRecordBytes = 0;
+            }
+
+            long start = br.BaseStream.Position;
             Unknown1 = Ultily.ReadIntFrom2Bytes(br.ReadBytes(2));
             Unknown2 = Ultily.ReadIntFrom2Bytes(br.ReadBytes(2));
-            // Unknown1 == 255 => size is stored as uint16; otherwise as int32
-            if (Unknown1 == 255)
+            SizeStoredAsU16 = Unknown1 == 255;
+
+            if (SizeStoredAsU16)
             {
                 Size = Ultily.ReadIntFrom2Bytes(br.ReadBytes(2));
             }
             else
             {
+                // Default: int32 size (classic layout, high 16 bits usually 0).
+                long sizePos = br.BaseStream.Position;
                 Size = br.ReadInt32();
+
+                // Compressed blocks decompress to at most 65535 bytes. A field total size larger than
+                // that — or larger than the span to the next offset — means the int32 consumed the
+                // real u16 size plus the first half of the ID (seen on NEO datafile64 tables 299/316/351).
+                bool looksInvalid =
+                    Size < 0 ||
+                    Size > 65535 ||
+                    (maxRecordBytes < int.MaxValue && Size > maxRecordBytes);
+
+                if (looksInvalid)
+                {
+                    br.BaseStream.Seek(sizePos, SeekOrigin.Begin);
+                    Size = Ultily.ReadIntFrom2Bytes(br.ReadBytes(2));
+                    SizeStoredAsU16 = true;
+                }
             }
-            if (Size >= 12)
+
+            int header = HeaderSize;
+            if (Size < 0)
+            {
+                Size = 0;
+            }
+
+            // Size is total record length including header (matches official layout).
+            int body = Size - header;
+            if (body < 0)
+            {
+                body = 0;
+            }
+
+            // Never read past the declared max span (keeps subarchive offsets aligned).
+            long already = br.BaseStream.Position - start;
+            int maxBody = maxRecordBytes < int.MaxValue
+                ? Math.Max(0, maxRecordBytes - (int)already)
+                : int.MaxValue;
+            if (body > maxBody)
+            {
+                body = maxBody;
+            }
+
+            if (body >= 4)
             {
                 ID = br.ReadInt32();
-                Data = br.ReadBytes(Size - 12);
+                int dataLen = body - 4;
+                Data = dataLen > 0 ? br.ReadBytes(dataLen) : new byte[0];
+            }
+            else if (body > 0)
+            {
+                ID = 0;
+                Data = br.ReadBytes(body);
             }
             else
             {
+                ID = 0;
                 Data = new byte[0];
             }
         }
@@ -425,8 +498,8 @@ namespace LegacyBin
         {
             bw.Write(Ultily.WriteIntTo2Bytes(Unknown1));
             bw.Write(Ultily.WriteIntTo2Bytes(Unknown2));
-            // Mirror Read: size width depends on Unknown1, not on Size alone
-            if (Unknown1 == 255)
+            // Mirror Read: u16 size when Unknown1==255 OR when we detected short size on read
+            if (SizeStoredAsU16 || Unknown1 == 255)
             {
                 bw.Write(Ultily.WriteIntTo2Bytes(Size));
             }
@@ -434,13 +507,18 @@ namespace LegacyBin
             {
                 bw.Write(Size);
             }
-            if (Size >= 12)
+            int header = HeaderSize;
+            if (Size >= header + 4)
             {
                 bw.Write(ID);
                 if (Data != null && Data.Length > 0)
                 {
                     bw.Write(Data);
                 }
+            }
+            else if (Size > header && Data != null && Data.Length > 0)
+            {
+                bw.Write(Data);
             }
         }
 
@@ -674,7 +752,12 @@ namespace LegacyBin
 
         public void Read(BinaryReader br)
         {
-            Data = br.ReadBytes(Size);
+            if (Size < 0)
+            {
+                throw new InvalidDataException(
+                    "BDAT_LOOKUPTABLE negative size " + Size + " at 0x" + br.BaseStream.Position.ToString("X"));
+            }
+            Data = Size > 0 ? br.ReadBytes(Size) : new byte[0];
         }
 
         public void Write(BinaryWriter bw)
@@ -767,7 +850,8 @@ namespace LegacyBin
 
                 long fieldStart = position;
                 var field = new BDAT_FIELDTABLE();
-                field.Read(br);
+                int maxField = remaining > int.MaxValue ? int.MaxValue : (int)remaining;
+                field.Read(br, maxField);
                 if (br.BaseStream.Position > fieldsEnd)
                 {
                     // Partial/false field that spilled into padding or lookup — rewind
@@ -995,6 +1079,10 @@ namespace LegacyBin
         {
             StartAndEndFieldId = br.ReadBytes(16);
             SizeCompressed = Ultily.ReadIntFrom2Bytes(br.ReadBytes(2));
+            if (SizeCompressed < 0)
+            {
+                throw new InvalidDataException("BDAT_SUBARCHIVE SizeCompressed < 0");
+            }
             byte[] buffer = br.ReadBytes(SizeCompressed);
             SizeDecompressed = Ultily.ReadIntFrom2Bytes(br.ReadBytes(2));
             if (SizeDecompressed < 0)
@@ -1002,20 +1090,63 @@ namespace LegacyBin
                 Console.WriteLine("SizeCompressed: " + SizeCompressed + "|SizeDecompressed: " + SizeDecompressed);
             }
             byte[] buffer2 = m_bnsDat.Deflate(buffer, SizeCompressed, SizeDecompressed);
+            // Prefer actual inflate length when it differs (still cap lookups to declared SizeDecompressed).
+            int decompLen = buffer2 != null ? buffer2.Length : 0;
+            int endLimit = SizeDecompressed > 0 ? SizeDecompressed : decompLen;
+            if (endLimit > decompLen)
+            {
+                endLimit = decompLen;
+            }
+
             FieldLookupCount = br.ReadInt32();
+            if (FieldLookupCount < 0)
+            {
+                throw new InvalidDataException("BDAT_SUBARCHIVE FieldLookupCount < 0: " + FieldLookupCount);
+            }
             Fields = new BDAT_FIELDTABLE[FieldLookupCount];
             Lookups = new BDAT_LOOKUPTABLE[FieldLookupCount];
-            BinaryReader binaryReader = new BinaryReader(new MemoryStream(buffer2));
-            int num = Ultily.ReadIntFrom2Bytes(br.ReadBytes(2));
-            for (int i = 1; i <= FieldLookupCount; i++)
+            BinaryReader binaryReader = new BinaryReader(new MemoryStream(buffer2 ?? new byte[0]));
+
+            // Read all field start offsets first so each record can be size-bounded.
+            int[] offsets = new int[FieldLookupCount];
+            for (int i = 0; i < FieldLookupCount; i++)
             {
-                binaryReader.BaseStream.Seek(num, SeekOrigin.Begin);
-                Fields[i - 1] = new BDAT_FIELDTABLE();
-                Fields[i - 1].Read(binaryReader);
-                num = ((i >= FieldLookupCount) ? SizeDecompressed : Ultily.ReadIntFrom2Bytes(br.ReadBytes(2)));
-                Lookups[i - 1] = new BDAT_LOOKUPTABLE();
-                Lookups[i - 1].Size = num - (int)binaryReader.BaseStream.Position;
-                Lookups[i - 1].Read(binaryReader);
+                offsets[i] = Ultily.ReadIntFrom2Bytes(br.ReadBytes(2));
+            }
+
+            for (int i = 0; i < FieldLookupCount; i++)
+            {
+                int start = offsets[i];
+                int end = (i + 1 < FieldLookupCount) ? offsets[i + 1] : endLimit;
+                if (start < 0 || start > decompLen)
+                {
+                    throw new InvalidDataException(
+                        "BDAT_SUBARCHIVE field " + i + " start offset " + start + " outside decompressed buffer (" + decompLen + ")");
+                }
+                if (end < start)
+                {
+                    throw new InvalidDataException(
+                        "BDAT_SUBARCHIVE field " + i + " end offset " + end + " < start " + start);
+                }
+
+                int maxRecord = end - start;
+                binaryReader.BaseStream.Seek(start, SeekOrigin.Begin);
+                Fields[i] = new BDAT_FIELDTABLE();
+                Fields[i].Read(binaryReader, maxRecord);
+
+                // Lookup string heap sits between end of field record and next offset.
+                int afterField = (int)binaryReader.BaseStream.Position;
+                int lookupSize = end - afterField;
+                if (lookupSize < 0)
+                {
+                    // Should not happen with maxRecord clamp; keep stream alive.
+                    lookupSize = 0;
+                    binaryReader.BaseStream.Seek(end, SeekOrigin.Begin);
+                }
+
+                Lookups[i] = new BDAT_LOOKUPTABLE();
+                Lookups[i].Size = lookupSize;
+                Lookups[i].Read(binaryReader);
             }
         }
 
