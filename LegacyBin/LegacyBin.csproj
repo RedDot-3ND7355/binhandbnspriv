@@ -53,17 +53,10 @@
   <PropertyGroup>
     <StartupObject>LegacyBin.Program</StartupObject>
   </PropertyGroup>
+  <!-- ClickOnce manifest signing disabled for public builds (no .pfx in repo). -->
   <PropertyGroup>
-    <ManifestCertificateThumbprint>62BACA7CECD65DA7827A0A422731C9ECC3ECD18C</ManifestCertificateThumbprint>
-  </PropertyGroup>
-  <PropertyGroup>
-    <ManifestKeyFile>LegacyBin_TemporaryKey.pfx</ManifestKeyFile>
-  </PropertyGroup>
-  <PropertyGroup>
-    <GenerateManifests>true</GenerateManifests>
-  </PropertyGroup>
-  <PropertyGroup>
-    <SignManifests>true</SignManifests>
+    <GenerateManifests>false</GenerateManifests>
+    <SignManifests>false</SignManifests>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="DotNetZip, Version=1.13.8.0, Culture=neutral, PublicKeyToken=6583c7c814667745, processorArchitecture=MSIL">
@@ -80,6 +73,7 @@
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.IO.Compression" />
+    <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml">
       <Private>True</Private>
@@ -103,6 +97,9 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="LocalfileTranslation.cs" />
+    <Compile Include="GoogleFreeTranslate.cs" />
+    <Compile Include="TranslationMarkupGuard.cs" />
+    <Compile Include="AutoTranslateService.cs" />
     <Compile Include="TranslateForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -144,7 +141,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
-    <None Include="LegacyBin_TemporaryKey.pfx" />
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.8">

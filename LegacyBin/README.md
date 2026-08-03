@@ -67,9 +67,20 @@ Mode is resolved by:
 **Tools → Localfile Translate…** (BnsDatTool-compatible):
 
 1. Open `localfile.bin` / `localfile64.bin` in the editor  
-2. **Export XML** → `Translation.xml` / `Translation64.xml` (alias + original text from the text/commons table)  
-3. Optionally **Merge XMLs by alias** (source language → target structure)  
-4. **Apply XML → open bin** (matches by **alias**, then by original text)  
-5. **File → Save** the bin  
+2. **Export XML** → Target `Translation.xml` (aliases + original text from the text/commons table)  
+3. **Merge XMLs by alias** — Source = other region’s Translation XML (e.g. English), Target = current client export (e.g. Thai structure). Matched aliases copy source replacements in.  
+4. **Fill gaps (auto-translate)** — After merge, many rows are already `original ≠ replacement`. The tool:  
+   - samples those rows and **detects original language + replacement language** (e.g. `th` → `en`)  
+   - locks that pair for the run  
+   - only translates **gaps** still at `original == replacement` (alias missing in source)  
+   - dedupes by original text; resumes via `Translation.xml.gtcache.{sl}-{tl}`  
+5. **Apply XML → open bin** (matches by **alias**, then by original text)  
+6. **File → Save** the bin  
 
 Lookup layout for text records: `words[0]=alias`, `words[1]=display text`. Oversized compressed blocks can be auto-split after apply.
+
+Fill gaps uses the unofficial Google Translate free endpoint (no API key). Prefer merge-first so only missing aliases hit the API.
+
+**Markup safety:** before each MT call, `<font …>` tags and HTML entities (`&quot;`, `&lt;`, `&amp;`, …) are replaced with placeholders and restored afterward so Google cannot turn entities into raw `"` / `<` and break in-game UI.
+
+**Speed:** set **Workers** (default 6, max 16) for parallel requests. ~6× is usually a good balance; if you see many errors/429s, drop to 3–4 or let retries/backoff handle it and re-run from cache.

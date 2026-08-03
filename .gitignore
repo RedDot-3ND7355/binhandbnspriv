@@ -1,0 +1,59 @@
+# Build outputs
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rtifacts/
+*.exe
+*.dll
+*.pdb
+*.cache
+*.log
+*.tmp
+*.temp
+
+# Keep project dependency DLLs that must ship with source
+!LegacyBin/DotNetZip.dll
+!LegacyBin/Resources/*.dll
+
+# Visual Studio / VS Code
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+.vscode/
+*.code-workspace
+
+# ClickOnce / publish
+*.application
+*.manifest
+publish/
+**/app.publish/
+
+# Test harness / translation scratch (never commit client dumps)
+**/_auto_test/
+**/_markup_test/
+*.gtcache
+*.gtcache.*
+Translation*.xml
+!**/docs/**
+
+# Secrets / local signing keys (do not ship)
+*.pfx
+*.p12
+*.snk
+*.key
+
+# OS junk
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# NuGet (if added later)
+packages/
+*.nupkg
+project.lock.json
