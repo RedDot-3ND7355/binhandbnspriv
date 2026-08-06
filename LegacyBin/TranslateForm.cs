@@ -420,17 +420,32 @@ namespace LegacyBin
                     int filled = 0;
                     int gaps = 0;
                     int empty = 0;
+                    int mergedHits = 0;
+                    int structMismatch = 0;
+                    int noAlias = 0;
                     await Task.Run(() =>
                     {
                         var src = LocalfileTranslation.LoadXml(source);
                         var tgt = LocalfileTranslation.LoadXml(target);
-                        var merged = LocalfileTranslation.MergeByAlias(tgt, src);
+                        var merged = LocalfileTranslation.MergeByAlias(tgt, src, out var st);
                         LocalfileTranslation.SaveXml(outPath, merged);
                         count = merged.Count;
+                        mergedHits = st.Merged;
+                        structMismatch = st.StructureMismatched;
+                        noAlias = st.NoAliasMatch;
                         AutoTranslateService.CountMergeGaps(merged, out filled, out gaps, out empty);
                     });
                     _txtTargetXml.Text = outPath;
                     Log("Merged " + count + " entries → " + outPath);
+                    Log("  merged by alias (target markup kept): " + mergedHits);
+                    if (structMismatch > 0)
+                    {
+                        Log("  structure mismatched (kept target original, icon IDs preserved): " + structMismatch);
+                    }
+                    if (noAlias > 0)
+                    {
+                        Log("  no alias match (target unchanged): " + noAlias);
+                    }
                     Log("  already translated (orig ≠ repl): " + filled);
                     Log("  gaps still untranslated (orig = repl): " + gaps);
                     if (empty > 0)
@@ -438,6 +453,11 @@ namespace LegacyBin
                         Log("  empty original: " + empty);
                     }
                     string msg = "Merge complete.\n" + outPath
+                        + "\n\nMerged by alias: " + mergedHits
+                        + (structMismatch > 0
+                            ? "\nStructure mismatched (target kept, icons preserved): " + structMismatch
+                            : "")
+                        + "\nNo alias match: " + noAlias
                         + "\n\nTranslated by alias: " + filled
                         + "\nGaps (alias missing / still orig=repl): " + gaps
                         + (gaps > 0

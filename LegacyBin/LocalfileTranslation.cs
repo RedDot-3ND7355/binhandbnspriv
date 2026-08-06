@@ -36,6 +36,16 @@ namespace LegacyBin
             public string TextTableSummary;
         }
 
+        public sealed class MergeResult
+        {
+            public int Total;
+            public int Merged;
+            public int StructureMismatched;
+            public int NoAliasMatch;
+            public int Empty;
+        }
+
+
         /// <summary>
         /// Load BnsDatTool-style Translation.xml:
         /// &lt;table&gt;&lt;text autoId alias priority&gt;&lt;original/&gt;&lt;replacement/&gt;&lt;/text&gt;...
@@ -137,17 +147,29 @@ namespace LegacyBin
         /// <summary>
         /// Merge source translations into target by alias (BnsDatTool MergeTranslation).
         /// Returns merged entry list (target structure, source replacements where alias matches).
+        /// Icon/reference tokens (tags + entities) are kept from the TARGET so the merged
+        /// string still references the target client's asset IDs; only the human-readable
+        /// text segments between tags come from the source translation.
         /// </summary>
         public static List<Entry> MergeByAlias(List<Entry> target, List<Entry> source)
         {
+            return MergeByAlias(target, source, out _);
+        }
+
+        public static List<Entry> MergeByAlias(List<Entry> target, List<Entry> source, out MergeResult stats)
+        {
+            stats = new MergeResult { Total = target?.Count ?? 0 };
             var byAlias = new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach (var s in source)
+            if (source != null)
             {
-                if (string.IsNullOrEmpty(s.Alias))
+                foreach (var s in source)
                 {
-                    continue;
+                    if (string.IsNullOrEmpty(s.Alias))
+                    {
+                        continue;
+                    }
+                    byAlias[s.Alias] = s.Replacement ?? string.Empty;
                 }
-                byAlias[s.Alias] = s.Replacement ?? string.Empty;
             }
             var merged = new List<Entry>(target.Count);
             foreach (var t in target)
@@ -161,15 +183,185 @@ namespace LegacyBin
                     Replacement = t.Replacement,
                     Type = t.Type
                 };
-                if (!string.IsNullOrEmpty(e.Alias) && byAlias.TryGetValue(e.Alias, out string rep))
+                if (string.IsNullOrEmpty(e.Alias))
                 {
-                    e.Replacement = rep;
-                    e.Type = "merged";
+                    stats.Empty++;
+                    merged.Add(e);
+                    continue;
+                }
+                if (byAlias.TryGetValue(e.Alias, out string srcRep) && !string.IsNullOrEmpty(srcRep))
+                {
+                    string targetText = e.Replacement ?? e.Original ?? string.Empty;
+                    string mergedText = MergeKeepTargetMarkup(targetText, srcRep, out bool structureOk);
+                    if (!structureOk)
+                    {
+                        // Tag sequence differs (source dropped/reordered tags). Keep target
+                        // original so icon/reference IDs stay intact; fill-gaps can MT it later.
+                        stats.StructureMismatched++;
+                        // still fall through to leave e.Replacement as target original
+                    }
+                    else
+                    {
+                        e.Replacement = mergedText;
+                        e.Type = "merged";
+                        stats.Merged++;
+                    }
+                }
+                else
+                {
+                    stats.NoAliasMatch++;
                 }
                 merged.Add(e);
             }
             return merged;
         }
+
+        /// <summary>
+        /// Combine target's markup tags (which carry icon/reference IDs like imagesetpath="…")
+        /// with source's translated text. Both strings are split into alternating
+        /// [text, tag, text, tag, …, text] segments (entities stay inside text segments since
+        /// they are just escaped punctuation, not references). If the tag sequence (by tag name)
+        /// matches, we emit target's tag tokens interleaved with source's text segments, then
+        /// run NormalizeEntities so any bare " from a corrupted source becomes &quot;.
+        ///
+        /// On tag-sequence mismatch:
+        ///   • if target has tags → keep target original (icon/reference IDs must stay intact);
+        ///   • if target has no tags → take source wholesale + normalize (no icons at risk).
+        /// </summary>
+        public static string MergeKeepTargetMarkup(string targetText, string sourceText, out bool structureOk)
+        {
+            structureOk = true;
+            if (string.IsNullOrEmpty(targetText) || string.IsNullOrEmpty(sourceText))
+            {
+                return targetText ?? sourceText ?? string.Empty;
+            }
+            if (ReferenceEquals(targetText, sourceText) || string.Equals(targetText, sourceText, StringComparison.Ordinal))
+            {
+                return targetText;
+            }
+
+            var tSegs = SplitTagSegments(targetText);
+            var sSegs = SplitTagSegments(sourceText);
+
+            // Tag sequence must match by key (tag name + close + self-close).
+            if (!TagSequencesMatch(tSegs, sSegs))
+            {
+                structureOk = false;
+                bool targetHasTags = tSegs.Count > 1; // >1 means at least one tag segment
+                if (!targetHasTags)
+                {
+                    // No icons/references in target — safe to take source's translation.
+                    return TranslationMarkupGuard.NormalizeEntities(sourceText);
+                }
+                // Target has tags that don't line up with source — keep target so icon IDs survive.
+                return targetText;
+            }
+
+            var sb = new StringBuilder(targetText.Length + sourceText.Length);
+            for (int i = 0; i < tSegs.Count; i++)
+            {
+                if ((i & 1) == 1)
+                {
+                    // tag → keep target's exact token (preserves its asset IDs / attributes)
+                    sb.Append(tSegs[i]);
+                }
+                else
+                {
+                    // text segment (may contain entities) → take source's translation
+                    sb.Append(sSegs[i]);
+                }
+            }
+            return TranslationMarkupGuard.NormalizeEntities(sb.ToString());
+        }
+
+        private static readonly System.Text.RegularExpressions.Regex TagSegmentRegex =
+            new System.Text.RegularExpressions.Regex(
+                @"</?[A-Za-z][^<>]*>",
+                System.Text.RegularExpressions.RegexOptions.Compiled
+                | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        /// <summary>
+        /// Split into [text, tag, text, tag, …, text] where tag = a markup tag matched by
+        /// TagSegmentRegex. Entities (&quot; etc.) are NOT split out — they stay in text
+        /// segments because they are escaped punctuation, not icon/reference tokens.
+        /// Even indices are text (may be empty), odd indices are tag tokens.
+        /// </summary>
+        private static List<string> SplitTagSegments(string s)
+        {
+            var segs = new List<string>();
+            int last = 0;
+            int i = 0;
+            while (i < s.Length)
+            {
+                if (s[i] == '<')
+                {
+                    var m = TagSegmentRegex.Match(s, i);
+                    if (m.Success && m.Index == i)
+                    {
+                        segs.Add(s.Substring(last, i - last));
+                        segs.Add(m.Value);
+                        i += m.Value.Length;
+                        last = i;
+                        continue;
+                    }
+                }
+                i++;
+            }
+            segs.Add(last < s.Length ? s.Substring(last) : string.Empty);
+            return segs;
+        }
+
+        private static bool TagSequencesMatch(List<string> a, List<string> b)
+        {
+            if (a.Count != b.Count)
+            {
+                return false;
+            }
+            for (int i = 1; i < a.Count; i += 2)
+            {
+                if (!MarkupTokenKeysEqual(a[i], b[i]))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+
+        /// <summary>Compare two markup tokens by structural key (tag name + close + self-close, or full entity).</summary>
+        private static bool MarkupTokenKeysEqual(string a, string b)
+        {
+            if (string.Equals(a, b, StringComparison.Ordinal))
+            {
+                return true;
+            }
+            string ka = MarkupKey(a);
+            string kb = MarkupKey(b);
+            return string.Equals(ka, kb, StringComparison.Ordinal);
+        }
+
+        private static string MarkupKey(string tok)
+        {
+            if (string.IsNullOrEmpty(tok))
+            {
+                return string.Empty;
+            }
+            if (tok[0] == '&')
+            {
+                return tok; // entity: compare verbatim (&quot; == &quot;)
+            }
+            // <tag …>, </tag>, <tag/>
+            int start = 1;
+            bool closing = tok.Length > 1 && tok[1] == '/';
+            if (closing) start = 2;
+            int end = start;
+            while (end < tok.Length && char.IsLetter(tok[end])) end++;
+            string name = tok.Substring(start, end - start).ToLowerInvariant();
+            bool selfClose = tok.EndsWith("/>", StringComparison.Ordinal);
+            return "<" + (closing ? "/" : "") + name + (selfClose ? "/" : "") + ">";
+        }
+
+
 
         public static Dictionary<string, string> BuildAliasMap(List<Entry> entries)
         {
@@ -460,6 +652,9 @@ namespace LegacyBin
                     continue;
                 }
 
+                // Final safety: re-escape any bare " / & / < that sit outside tags so the bin
+                // never ends up with raw quotes that BNS expects as &quot;.
+                translated = TranslationMarkupGuard.NormalizeEntities(translated);
                 words[1] = translated;
                 // rebuild full word list (preserve extra words beyond 0/1 if any)
                 string[] arr = words.ToArray();

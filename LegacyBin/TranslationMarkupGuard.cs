@@ -89,7 +89,6 @@ namespace LegacyBin
             {
                 return translated ?? string.Empty;
             }
-
             string s = translated;
 
             // Primary restore (full placeholder form).
@@ -158,7 +157,7 @@ namespace LegacyBin
             }
 
             string mid = translatePlain(p.Text) ?? p.Text;
-            return Unprotect(mid, p.Tokens);
+            return NormalizeEntities(Unprotect(mid, p.Tokens));
         }
 
         public static async System.Threading.Tasks.Task<string> ProtectTranslateUnprotectAsync(
@@ -177,7 +176,7 @@ namespace LegacyBin
             var p = Protect(original);
             if (!p.HadMarkup)
             {
-                return await translatePlainAsync(original).ConfigureAwait(false) ?? original;
+                return NormalizeEntities(await translatePlainAsync(original).ConfigureAwait(false) ?? original);
             }
 
             if (IsOnlyPlaceholdersAndWhitespace(p.Text))
@@ -186,12 +185,121 @@ namespace LegacyBin
             }
 
             string mid = await translatePlainAsync(p.Text).ConfigureAwait(false) ?? p.Text;
-            return Unprotect(mid, p.Tokens);
+            return NormalizeEntities(Unprotect(mid, p.Tokens));
         }
 
         public static string MakePlaceholder(int id)
         {
             return "⟦§" + id + "§⟧";
+        }
+
+        /// <summary>
+        /// Re-escape bare markup characters that appear OUTSIDE tags/entities so the string
+        /// survives round-trip through MT / merge. BNS stores quotes as &quot; and apostrophes
+        /// as &apos; literally; Google often turns &quot; into " and &apos; into ' and drops
+        /// the entity. Original bins never contain a bare " or ' outside a tag attribute, so
+        /// re-escaping is always safe.
+        ///
+        /// Tag regions (matched by TagRegex) are left untouched so attribute quotes like
+        /// <font name="..."> stay as-is. Inside text segments we:
+        ///   • keep existing valid entities (&quot;, &apos;, &amp;, &#…;)
+        ///   • "  → &quot;
+        ///   • '  → &apos;
+        ///   • &  → &amp;   (only when not already part of an entity)
+        ///   • <  → &lt;    (bare < that didn't start a tag)
+        ///   • >  → &gt;    (bare > outside a tag — e.g. from MT-mangled tag fragments)
+        /// </summary>
+        public static string NormalizeEntities(string s)
+        {
+            if (string.IsNullOrEmpty(s))
+            {
+                return s ?? string.Empty;
+            }
+            // Fast path: nothing to fix.
+            bool hasQuote = s.IndexOf('"') >= 0;
+            bool hasApos = s.IndexOf('\'') >= 0;
+            bool hasAmp = s.IndexOf('&') >= 0;
+            bool hasLt = s.IndexOf('<') >= 0;
+            if (!hasQuote && !hasApos && !hasAmp && !hasLt)
+            {
+                return s;
+            }
+
+            var sb = new StringBuilder(s.Length + 16);
+            int last = 0;
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = s[i];
+                if (c == '<')
+                {
+                    var m = TagRegex.Match(s, i);
+                    if (m.Success && m.Index == i)
+                    {
+                        // Tag region — copy verbatim, skip ahead.
+                        if (i > last)
+                        {
+                            AppendNormalizedSegment(sb, s, last, i);
+                        }
+                        sb.Append(m.Value);
+                        i += m.Value.Length - 1; // loop's i++ moves past
+                        last = i + 1;
+                        continue;
+                    }
+                }
+            }
+            if (last < s.Length)
+            {
+                AppendNormalizedSegment(sb, s, last, s.Length);
+            }
+            return sb.ToString();
+        }
+
+        private static void AppendNormalizedSegment(StringBuilder sb, string s, int start, int end)
+        {
+            int i = start;
+            while (i < end)
+            {
+                char c = s[i];
+                if (c == '&')
+                {
+                    var m = EntityRegex.Match(s, i);
+                    if (m.Success && m.Index == i && i + m.Length <= end)
+                    {
+                        sb.Append(m.Value);
+                        i += m.Length;
+                        continue;
+                    }
+                    sb.Append("&amp;");
+                    i++;
+                }
+                else if (c == '"')
+                {
+                    sb.Append("&quot;");
+                    i++;
+                }
+                else if (c == '\'')
+                {
+                    sb.Append("&apos;");
+                    i++;
+                }
+                else if (c == '<')
+                {
+                    // Bare < that TagRegex didn't claim as a tag start.
+                    sb.Append("&lt;");
+                    i++;
+                }
+                else if (c == '>')
+                {
+                    // Bare > outside a tag (e.g. from MT-mangled tag fragments).
+                    sb.Append("&gt;");
+                    i++;
+                }
+                else
+                {
+                    sb.Append(c);
+                    i++;
+                }
+            }
         }
 
         public static bool MightContainMarkup(string s)
