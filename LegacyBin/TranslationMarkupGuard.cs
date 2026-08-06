@@ -216,11 +216,7 @@ namespace LegacyBin
                 return s ?? string.Empty;
             }
             // Fast path: nothing to fix.
-            bool hasQuote = s.IndexOf('"') >= 0;
-            bool hasApos = s.IndexOf('\'') >= 0;
-            bool hasAmp = s.IndexOf('&') >= 0;
-            bool hasLt = s.IndexOf('<') >= 0;
-            if (!hasQuote && !hasApos && !hasAmp && !hasLt)
+            if (s.IndexOfAny(new[] { '"', '\'', '&', '<', '>' }) < 0)
             {
                 return s;
             }
