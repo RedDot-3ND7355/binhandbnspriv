@@ -1,0 +1,61 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="LegacyBin.Ava.TranslateWindow"
+        Title="Localfile Translate"
+        Width="860"
+        Height="680"
+        MinWidth="720"
+        MinHeight="540"
+        WindowStartupLocation="CenterOwner">
+    <Grid Margin="10" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*">
+        <!-- status -->
+        <TextBlock x:Name="LblStatus" TextWrapping="Wrap" Margin="0,0,0,6"/>
+
+        <!-- source xml row -->
+        <Grid Grid.Row="1" ColumnDefinitions="220,*,100" Margin="0,2">
+            <TextBlock Text="Source / merge-from XML:" VerticalAlignment="Center"/>
+            <TextBox x:Name="TxtSourceXml" Grid.Column="1" Margin="6,0"/>
+            <Button x:Name="BtnBrowseSource" Grid.Column="2" Content="Browse…" Margin="6,0,0,0" Click="OnBrowseSourceClicked"/>
+        </Grid>
+
+        <!-- target xml row -->
+        <Grid Grid.Row="2" ColumnDefinitions="220,*,100" Margin="0,2">
+            <TextBlock Text="Target XML (export / merge into):" VerticalAlignment="Center"/>
+            <TextBox x:Name="TxtTargetXml" Grid.Column="1" Margin="6,0"/>
+            <Button x:Name="BtnBrowseTarget" Grid.Column="2" Content="Browse…" Margin="6,0,0,0" Click="OnBrowseTargetClicked"/>
+        </Grid>
+
+        <!-- options -->
+        <WrapPanel Grid.Row="3" Margin="0,6,0,6">
+            <CheckBox x:Name="ChkAutoTable" Content="Auto-detect text table" IsChecked="True" VerticalAlignment="Center"/>
+            <TextBlock Text="  Table index: " VerticalAlignment="Center"/>
+            <NumericUpDown x:Name="NumTable" Minimum="0" Maximum="9999" Value="0" Width="80" IsEnabled="False" VerticalAlignment="Center"/>
+            <CheckBox x:Name="ChkResplit" Content="Split oversized blocks after apply" IsChecked="True" Margin="14,0,0,0" VerticalAlignment="Center"/>
+            <CheckBox x:Name="ChkOnlyUntranslated" Content="Fill gaps only (orig = repl)" IsChecked="True" Margin="14,0,0,0" VerticalAlignment="Center"/>
+            <CheckBox x:Name="ChkDetectFromPairs" Content="Detect langs from merged pairs" IsChecked="True" Margin="14,0,0,0" VerticalAlignment="Center"/>
+            <CheckBox x:Name="ChkFuzzyRenames" Content="Match renamed aliases (1-token)" Margin="14,0,0,0" VerticalAlignment="Center"/>
+            <TextBlock Text="  Workers: " VerticalAlignment="Center"/>
+            <NumericUpDown x:Name="NumWorkers" Minimum="1" Maximum="16" Value="6" Width="60" VerticalAlignment="Center"/>
+        </WrapPanel>
+
+        <!-- buttons -->
+        <WrapPanel Grid.Row="4" Margin="0,4,0,6">
+            <Button x:Name="BtnExport" Content="Export XML from open bin" Margin="0,0,8,4" Click="OnExportClicked"/>
+            <Button x:Name="BtnMerge" Content="Merge XMLs by alias" Margin="0,0,8,4" Click="OnMergeClicked"/>
+            <Button x:Name="BtnAutoTranslate" Content="Fill gaps (auto-translate)" Margin="0,0,8,4" Click="OnAutoTranslateClicked"/>
+            <Button x:Name="BtnCancelAuto" Content="Cancel auto" Margin="0,0,8,4" IsEnabled="False" Click="OnCancelAutoClicked"/>
+            <Button x:Name="BtnApply" Content="Apply XML → open bin" Margin="0,0,8,4" Click="OnApplyClicked"/>
+            <Button Content="Close" Margin="0,0,8,4" Click="OnCloseClicked"/>
+        </WrapPanel>
+
+        <!-- progress -->
+        <ProgressBar x:Name="Progress" Grid.Row="5" Minimum="0" Maximum="100" Value="0" Height="18" Margin="0,2,0,4"/>
+
+        <!-- auto status -->
+        <TextBlock x:Name="LblAutoStatus" Grid.Row="6" TextWrapping="Wrap" Margin="0,2,0,4"/>
+
+        <!-- log -->
+        <TextBox x:Name="TxtLog" Grid.Row="7" AcceptsReturn="True" IsReadOnly="True"
+                 TextWrapping="Wrap" FontFamily="monospace, Courier New, Consolas" FontSize="12"/>
+    </Grid>
+</Window>

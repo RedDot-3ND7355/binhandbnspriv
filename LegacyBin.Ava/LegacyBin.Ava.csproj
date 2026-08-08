@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>LegacyBin.Ava</RootNamespace>
+    <AssemblyName>LegacyBin.Ava</AssemblyName>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.19" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.19" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.19" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.19" Condition="'$(Configuration)' == 'Debug'" />
+  </ItemGroup>
+
+  <!-- Shared engine sources from the WinForms project (kept dual-target with #if NET8_0_OR_GREATER). -->
+  <ItemGroup>
+    <Compile Include="../LegacyBin/BDat.cs" />
+    <Compile Include="../LegacyBin/bnsTool.cs" />
+    <Compile Include="../LegacyBin/BXml.cs" />
+    <Compile Include="../LegacyBin/ByteBuffer.cs" />
+    <Compile Include="../LegacyBin/wxSeekMode.cs" />
+    <Compile Include="../LegacyBin/IMessage.cs" />
+    <Compile Include="../LegacyBin/MessageSerializer.cs" />
+    <Compile Include="../LegacyBin/BinSession.cs" />
+    <Compile Include="../LegacyBin/BinEditOptions.cs" />
+    <Compile Include="../LegacyBin/EditorUndoStack.cs" />
+    <Compile Include="../LegacyBin/LocalfileTranslation.cs" />
+    <Compile Include="../LegacyBin/TranslationMarkupGuard.cs" />
+    <Compile Include="../LegacyBin/AutoTranslateService.cs" />
+    <Compile Include="../LegacyBin/GoogleFreeTranslate.cs" />
+    <Compile Include="../LegacyBin/bcrypt.cs" />
+    <Compile Include="../LegacyBin/BNSDat.cs" />
+    <Compile Include="../LegacyBin/Ultily1.cs" />
+  </ItemGroup>
+</Project>

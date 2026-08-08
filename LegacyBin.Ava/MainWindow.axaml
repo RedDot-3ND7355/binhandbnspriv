@@ -1,0 +1,32 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ava="using:LegacyBin.Ava"
+        x:Class="LegacyBin.Ava.MainWindow"
+        Title="LegacyBin (Avalonia)"
+        Width="760"
+        Height="420"
+        MinWidth="640"
+        MinHeight="360"
+        WindowStartupLocation="CenterScreen">
+    <DockPanel Margin="12">
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8">
+            <Button x:Name="BtnOpen" Content="Open bin…" Click="OnOpenClicked" Padding="12,6"/>
+            <Button x:Name="BtnUnpack" Content="Unpack to XML…" IsEnabled="False" Padding="12,6" Click="OnUnpackClicked"/>
+            <Button x:Name="BtnRepack" Content="Repack from XML…" IsEnabled="False" Padding="12,6" Click="OnRepackClicked"/>
+            <Button x:Name="BtnTranslate" Content="Translation workbench…" IsEnabled="False" Padding="12,6" Click="OnTranslateClicked"/>
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Spacing="4" Margin="0,8,0,0">
+            <ProgressBar x:Name="Progress" Minimum="0" Maximum="100" Value="0" Height="18" IsIndeterminate="False"/>
+            <TextBlock x:Name="Status" TextWrapping="Wrap" Text="No bin open."/>
+        </StackPanel>
+
+        <ListBox x:Name="TableList" Margin="0,10,0,0">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding}"/>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
+</Window>
