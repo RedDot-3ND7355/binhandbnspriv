@@ -60,20 +60,17 @@ public class EmbeddedAssembly
         }
         bool flag = false;
         string path = "";
-        using (SHA1CryptoServiceProvider sHA1CryptoServiceProvider = new SHA1CryptoServiceProvider())
+        string a = BitConverter.ToString(SHA1.HashData(array)).Replace("-", string.Empty);
+        path = Path.GetTempPath() + fileName;
+        if (File.Exists(path))
         {
-            string a = BitConverter.ToString(sHA1CryptoServiceProvider.ComputeHash(array)).Replace("-", string.Empty);
-            path = Path.GetTempPath() + fileName;
-            if (File.Exists(path))
-            {
-                byte[] buffer = File.ReadAllBytes(path);
-                string b = BitConverter.ToString(sHA1CryptoServiceProvider.ComputeHash(buffer)).Replace("-", string.Empty);
-                flag = ((a == b) ? true : false);
-            }
-            else
-            {
-                flag = false;
-            }
+            byte[] buffer = File.ReadAllBytes(path);
+            string b = BitConverter.ToString(SHA1.HashData(buffer)).Replace("-", string.Empty);
+            flag = ((a == b) ? true : false);
+        }
+        else
+        {
+            flag = false;
         }
         if (!flag)
         {

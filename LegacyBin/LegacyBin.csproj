@@ -1,161 +1,41 @@
-﻿<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{358D29A0-C6D4-4252-9B3A-55209FACAF00}</ProjectGuid>
+    <!-- Migrated from .NET Framework 4.8 (ToolsVersion 12.0) to SDK-style net9.0-windows. -->
     <OutputType>WinExe</OutputType>
-    <NoStandardLibraries>false</NoStandardLibraries>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>LegacyBin</RootNamespace>
     <AssemblyName>LegacyBin</AssemblyName>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile />
-    <IsWebBootstrapper>false</IsWebBootstrapper>
-    <PublishUrl>publish\</PublishUrl>
-    <Install>true</Install>
-    <InstallFrom>Disk</InstallFrom>
-    <UpdateEnabled>false</UpdateEnabled>
-    <UpdateMode>Foreground</UpdateMode>
-    <UpdateInterval>7</UpdateInterval>
-    <UpdateIntervalUnits>Days</UpdateIntervalUnits>
-    <UpdatePeriodically>false</UpdatePeriodically>
-    <UpdateRequired>false</UpdateRequired>
-    <MapFileExtensions>true</MapFileExtensions>
-    <ApplicationRevision>3</ApplicationRevision>
-    <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
-    <UseApplicationTrust>false</UseApplicationTrust>
-    <PublishWizardCompleted>true</PublishWizardCompleted>
-    <BootstrapperEnabled>true</BootstrapperEnabled>
+    <StartupObject>LegacyBin.Program</StartupObject>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <!-- Allows building the Windows-targeted app from Linux (test/smoke builds only). -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <Prefer32Bit>false</Prefer32Bit>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <Prefer32Bit>false</Prefer32Bit>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
-  <PropertyGroup>
-    <RootNamespace>LegacyBin</RootNamespace>
-  </PropertyGroup>
-  <PropertyGroup>
-    <StartupObject>LegacyBin.Program</StartupObject>
-  </PropertyGroup>
-  <!-- ClickOnce manifest signing disabled for public builds (no .pfx in repo). -->
-  <PropertyGroup>
-    <GenerateManifests>true</GenerateManifests>
-    <SignManifests>false</SignManifests>
-  </PropertyGroup>
+
   <ItemGroup>
-    <Reference Include="DotNetZip, Version=1.13.8.0, Culture=neutral, PublicKeyToken=6583c7c814667745, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>.\DotNetZip.dll</HintPath>
-    </Reference>
+    <!-- MaterialSkin WinForms theme (net45-era, works fine on modern .NET). -->
     <Reference Include="MaterialSkin">
       <HintPath>Resources\MaterialSkin.dll</HintPath>
     </Reference>
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="System.Drawing" />
-    <Reference Include="System.IO.Compression" />
-    <Reference Include="System.Web.Extensions" />
-    <Reference Include="System.Windows.Forms" />
-    <Reference Include="System.Xml">
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="System.Xml.Linq" />
   </ItemGroup>
+
   <ItemGroup>
-    <Compile Include="bcrypt.cs" />
-    <Compile Include="BDat.cs" />
-    <Compile Include="BinEditOptions.cs" />
-    <Compile Include="DialogPaths.cs" />
-    <Compile Include="BinEditorForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="BinEditorForm.Designer.cs">
-      <DependentUpon>BinEditorForm.cs</DependentUpon>
-    </Compile>
-    <Compile Include="BinSession.cs" />
-    <Compile Include="EditorUndoStack.cs" />
-    <Compile Include="HexBlobForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="LocalfileTranslation.cs" />
-    <Compile Include="GoogleFreeTranslate.cs" />
-    <Compile Include="TranslationMarkupGuard.cs" />
-    <Compile Include="AutoTranslateService.cs" />
-    <Compile Include="TranslateForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="UiTheme.cs" />
-    <Compile Include="BNSDat.cs" />
-    <Compile Include="bnsTool.cs" />
-    <Compile Include="BXml.cs" />
-    <Compile Include="ByteBuffer.cs" />
-    <Compile Include="EmbeddedAssembly.cs" />
-    <Compile Include="Form1.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Form1.Designer.cs">
-      <DependentUpon>Form1.cs</DependentUpon>
-    </Compile>
-    <Compile Include="IMessage.cs" />
-    <Compile Include="MessageSerializer.cs" />
-    <Compile Include="Preload.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Program.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="TextWriter.cs" />
-    <Compile Include="Ultily1.cs" />
-    <Compile Include="wxSeekMode.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="DotNetZip.dll" />
-    <EmbeddedResource Include="Preload.resx">
-      <DependentUpon>Preload.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Resources\DotNetZip.dll" />
+    <!-- Embedded payloads loaded at runtime via EmbeddedAssembly. -->
     <EmbeddedResource Include="Resources\MaterialSkin.dll" />
   </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="Form1.resx">
-      <DependentUpon>Form1.cs</DependentUpon>
-    </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="app.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <BootstrapperPackage Include=".NETFramework,Version=v4.8">
-      <Visible>False</Visible>
-      <ProductName>Microsoft .NET Framework 4.8 %28x86 and x64%29</ProductName>
-      <Install>true</Install>
-    </BootstrapperPackage>
-    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
-      <Visible>False</Visible>
-      <ProductName>.NET Framework 3.5 SP1</ProductName>
-      <Install>false</Install>
-    </BootstrapperPackage>
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSHARP.Targets" />
-  <ProjectExtensions>
-    <VisualStudio AllowExistingFolder="true" />
-  </ProjectExtensions>
 </Project>

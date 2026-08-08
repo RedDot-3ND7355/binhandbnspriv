@@ -1,8 +1,8 @@
-﻿using Ionic.Zlib;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Text;
 
 public class bcrypt
@@ -107,7 +107,10 @@ public class bcrypt
     public static byte[] Deflate(byte[] buffer, int sizeCompressed, int sizeDecompressed)
     {
         byte[] buffer2 = new byte[sizeDecompressed];
-        new ZlibStream(new MemoryStream(buffer, 0, sizeCompressed), CompressionMode.Decompress).Read(buffer2, 0, sizeDecompressed);
+        using (var zs = new ZLibStream(new MemoryStream(buffer, 0, sizeCompressed), CompressionMode.Decompress))
+        {
+            zs.Read(buffer2, 0, sizeDecompressed);
+        }
         return buffer2;
     }
 
@@ -133,14 +136,16 @@ public class bcrypt
 
     public static byte[] Inflate(byte[] buffer, uint sizeDecompressed, ref uint sizeCompressed, uint compressionLevel)
     {
-        byte[] array = null;
-        using (MemoryStream memoryStream = new MemoryStream((int)sizeDecompressed))
+        byte[] array;
+        using (MemoryStream memoryStream = new MemoryStream())
         {
-            using (ZlibStream zlibStream = new ZlibStream(memoryStream, CompressionMode.Compress, (CompressionLevel)compressionLevel))
+            using (ZLibStream zlibStream = new ZLibStream(
+                memoryStream,
+                compressionLevel == 0 ? CompressionLevel.NoCompression : CompressionLevel.Optimal,
+                leaveOpen: true))
             {
                 zlibStream.Write(buffer, 0, (int)sizeDecompressed);
             }
-
             array = memoryStream.ToArray();
         }
         sizeCompressed = (uint)array.Length;

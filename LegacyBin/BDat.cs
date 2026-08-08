@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Windows.Forms;
 using System.Xml;
 using System.Xml.Serialization;
 
@@ -316,10 +315,6 @@ namespace LegacyBin
         {
             Is64Bit = true;
             BinEditOptions.Report("BDAT_CONTENT (64-bit)...");
-            if (Form1.CurrentForm != null)
-            {
-                Form1.CurrentForm.UpdateText("BDAT_CONTENT (64-bit)...");
-            }
             Signature = br.ReadBytes(8);
             Version = br.ReadInt32();
             // 64-bit: version byte + client version + start of 8-byte TotalTableSize already partially in Version/Unknown
@@ -329,27 +324,15 @@ namespace LegacyBin
             HeadList = new BDAT_HEAD();
             HeadList.Complement = ListCount <= 10;
             BinEditOptions.Report("BDAT_HEAD (64-bit)...");
-            if (Form1.CurrentForm != null)
-            {
-                Form1.CurrentForm.UpdateText("BDAT_HEAD (64-bit)...");
-            }
             HeadList.Read64(br);
             Lists = new BDAT_LIST[ListCount];
             BinEditOptions.Report("BDAT_LIST (64-bit)...");
-            if (Form1.CurrentForm != null)
-            {
-                Form1.CurrentForm.UpdateText("BDAT_LIST (64-bit)...");
-            }
             for (int i = 0; i < ListCount; i++)
             {
                 if (i % 10 == 0 || i == ListCount - 1)
                 {
                     string msg = "BDAT_LIST " + (i + 1) + "/" + ListCount;
                     BinEditOptions.Report(msg);
-                    if (Form1.CurrentForm != null)
-                    {
-                        Form1.CurrentForm.UpdateText(msg);
-                    }
                 }
                 Lists[i] = new BDAT_LIST();
                 Lists[i].Read64(br);
@@ -540,8 +523,7 @@ namespace LegacyBin
             Size = (int)newData.size;
             if (Size >= 12)
             {
-                bool useInt = BinEditOptions.UseIntData
-                    || (Form1.CurrentForm != null && Form1.CurrentForm.materialCheckbox1.Checked);
+                bool useInt = BinEditOptions.UseIntData;
                 if (useInt)
                 {
                     Data = bcrypt.IntToBytes(newData.data, newData.size - 8);

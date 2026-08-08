@@ -15,8 +15,7 @@ x86/
 *.temp
 
 # Keep project dependency DLLs that must ship with source
-!LegacyBin/DotNetZip.dll
-!LegacyBin/Resources/*.dll
+!LegacyBin/Resources/MaterialSkin.dll
 
 # Visual Studio / VS Code
 .vs/

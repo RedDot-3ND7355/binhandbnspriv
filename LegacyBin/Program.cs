@@ -17,7 +17,7 @@ namespace LegacyBin
         [STAThread]
         static int Main(string[] args)
         {
-            EmbeddedAssembly.Load("LegacyBin.Resources.DotNetZip.dll", "DotNetZip.dll");
+            // MaterialSkin is embedded in the assembly and resolved at runtime.
             EmbeddedAssembly.Load("LegacyBin.Resources.MaterialSkin.dll", "MaterialSkin.dll");
             AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
 

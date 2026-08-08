@@ -40,6 +40,10 @@ namespace LegacyBin
             // Initialize MaterialSkinManager
             materialSkinManager = MaterialSkinManager.Instance;
 
+            // "Int?" toggle drives the int-vs-hex payload interpretation in the shared format code.
+            materialCheckbox1.CheckedChanged += (s, e) => BinEditOptions.UseIntData = materialCheckbox1.Checked;
+            BinEditOptions.UseIntData = materialCheckbox1.Checked;
+
             // Set this to false to disable backcolor enforcing on non-materialSkin components
             // This HAS to be set before the AddFormToManage()
             materialSkinManager.EnforceBackcolorOnAllComponents = true;

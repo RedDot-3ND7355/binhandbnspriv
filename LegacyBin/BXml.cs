@@ -514,8 +514,7 @@ namespace LegacyBin
             {
                 // Payload is Size - 12 (header is unk1/unk2/size/id); helper size args are unused for length
                 uint payloadHint = (uint)Math.Max(0, bfield.Size - 12);
-                bool useInt = BinEditOptions.UseIntData
-                    || (Form1.CurrentForm != null && Form1.CurrentForm.materialCheckbox1.Checked);
+                bool useInt = BinEditOptions.UseIntData;
                 if (useInt)
                 {
                     data = bcrypt.BytesToInt(bfield.Data, payloadHint);

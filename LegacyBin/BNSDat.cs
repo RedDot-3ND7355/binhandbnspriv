@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using Ionic.Zlib;
+using System.IO.Compression;
 
 namespace LegacyBin
 {
@@ -27,7 +27,15 @@ namespace LegacyBin
 
 		public byte[] Deflate(byte[] buffer, int sizeCompressed, int sizeDecompressed)
 		{
-			byte[] array = ZlibStream.UncompressBuffer(buffer);
+			byte[] array;
+			using (var zs = new ZLibStream(new MemoryStream(buffer), CompressionMode.Decompress))
+			{
+				using (var ms = new MemoryStream())
+				{
+					zs.CopyTo(ms);
+					array = ms.ToArray();
+				}
+			}
 			byte[] array2 = new byte[sizeDecompressed];
 			if (array.Length > sizeDecompressed)
 			{
@@ -43,10 +51,11 @@ namespace LegacyBin
 		public byte[] Inflate(byte[] buffer, int sizeDecompressed, out int sizeCompressed, int compressionLevel)
 		{
 			MemoryStream memoryStream = new MemoryStream();
-			ZlibStream zlibStream = new ZlibStream(memoryStream, CompressionMode.Compress, CompressionLevel.Default, leaveOpen: true);
-			zlibStream.Write(buffer, 0, sizeDecompressed);
-			zlibStream.Flush();
-			zlibStream.Close();
+			using (ZLibStream zlibStream = new ZLibStream(memoryStream, CompressionLevel.Optimal, leaveOpen: true))
+			{
+				zlibStream.Write(buffer, 0, sizeDecompressed);
+				zlibStream.Flush();
+			}
 			sizeCompressed = (int)memoryStream.Length;
 			return memoryStream.ToArray();
 		}

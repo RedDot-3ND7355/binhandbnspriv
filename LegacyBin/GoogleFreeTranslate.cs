@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Web.Script.Serialization;
 
 namespace LegacyBin
 {
@@ -16,36 +16,6 @@ namespace LegacyBin
     {
         private const string Endpoint = "https://translate.googleapis.com/translate_a/single";
         private const int MaxGetChars = 1800;
-        private static readonly JavaScriptSerializer Json = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
-
-        static GoogleFreeTranslate()
-        {
-            try
-            {
-                ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
-                // DefaultConnectionLimit is 2 — that alone serializes "parallel" translates.
-                if (ServicePointManager.DefaultConnectionLimit < 32)
-                {
-                    ServicePointManager.DefaultConnectionLimit = 32;
-                }
-                try
-                {
-                    var sp = ServicePointManager.FindServicePoint(new Uri("https://translate.googleapis.com"));
-                    if (sp != null && sp.ConnectionLimit < 32)
-                    {
-                        sp.ConnectionLimit = 32;
-                    }
-                }
-                catch
-                {
-                    // ignore
-                }
-            }
-            catch
-            {
-                // ignore on locked-down hosts
-            }
-        }
 
         public sealed class Result
         {
@@ -227,36 +197,45 @@ namespace LegacyBin
                 return result;
             }
 
-            // Response shape: [ [ ["translated","original",...], ... ], null, "detectedLang", ... ]
-            object rootObj = Json.DeserializeObject(json);
-            var root = rootObj as object[];
-            if (root == null || root.Length == 0)
+            try
             {
-                return result;
-            }
-
-            var sb = new StringBuilder();
-            var sentences = root[0] as object[];
-            if (sentences != null)
-            {
-                foreach (var item in sentences)
+                using (var doc = JsonDocument.Parse(json))
                 {
-                    var row = item as object[];
-                    if (row != null && row.Length > 0 && row[0] != null)
+                    var root = doc.RootElement;
+                    if (root.ValueKind != JsonValueKind.Array || root.GetArrayLength() == 0)
                     {
-                        sb.Append(Convert.ToString(row[0]));
+                        return result;
+                    }
+
+                    var sentences = root[0];
+                    if (sentences.ValueKind == JsonValueKind.Array)
+                    {
+                        var sb = new StringBuilder();
+                        foreach (var item in sentences.EnumerateArray())
+                        {
+                            if (item.ValueKind == JsonValueKind.Array
+                                && item.GetArrayLength() > 0
+                                && item[0].ValueKind == JsonValueKind.String)
+                            {
+                                sb.Append(item[0].GetString());
+                            }
+                        }
+                        result.TranslatedText = sb.ToString();
+                    }
+
+                    if (root.GetArrayLength() > 2 && root[2].ValueKind == JsonValueKind.String)
+                    {
+                        string detected = root[2].GetString();
+                        if (!string.IsNullOrEmpty(detected))
+                        {
+                            result.DetectedLanguage = detected;
+                        }
                     }
                 }
             }
-            result.TranslatedText = sb.ToString();
-
-            if (root.Length > 2 && root[2] != null)
+            catch
             {
-                string detected = Convert.ToString(root[2]);
-                if (!string.IsNullOrEmpty(detected))
-                {
-                    result.DetectedLanguage = detected;
-                }
+                // Keep partial result on malformed responses.
             }
 
             return result;
