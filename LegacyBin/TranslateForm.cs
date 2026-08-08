@@ -24,6 +24,7 @@ namespace LegacyBin
         private CheckBox _chkResplit;
         private CheckBox _chkOnlyUntranslated;
         private CheckBox _chkDetectFromPairs;
+        private CheckBox _chkFuzzyRenames;
         private NumericUpDown _numWorkers;
         private Label _lblStatus;
         private Label _lblAutoStatus;
@@ -111,6 +112,13 @@ namespace LegacyBin
                 AutoSize = true,
                 Margin = new Padding(12, 6, 12, 0)
             };
+            _chkFuzzyRenames = new CheckBox
+            {
+                Text = "Match renamed aliases (1-token)",
+                Checked = false,
+                AutoSize = true,
+                Margin = new Padding(12, 6, 12, 0)
+            };
             _numWorkers = new NumericUpDown
             {
                 Minimum = 1,
@@ -125,6 +133,7 @@ namespace LegacyBin
             opts.Controls.Add(_chkResplit);
             opts.Controls.Add(_chkOnlyUntranslated);
             opts.Controls.Add(_chkDetectFromPairs);
+            opts.Controls.Add(_chkFuzzyRenames);
             opts.Controls.Add(new Label { Text = "Workers:", AutoSize = true, Margin = new Padding(12, 8, 4, 0) });
             opts.Controls.Add(_numWorkers);
             root.Controls.Add(opts, 0, 3);
@@ -423,21 +432,47 @@ namespace LegacyBin
                     int mergedHits = 0;
                     int structMismatch = 0;
                     int noAlias = 0;
+                    int fuzzyMatched = 0;
+                    string fuzzyRules = "";
+                    string srcFmt = "";
+                    string tgtFmt = "";
+                    int tgtTableId = -1;
+                    bool fuzzy = _chkFuzzyRenames.Checked;
                     await Task.Run(() =>
                     {
-                        var src = LocalfileTranslation.LoadXml(source);
-                        var tgt = LocalfileTranslation.LoadXml(target);
-                        var merged = LocalfileTranslation.MergeByAlias(tgt, src, out var st);
-                        LocalfileTranslation.SaveXml(outPath, merged);
+                        // Auto-detect: BnsDatTool Translation.xml (<table>) or unpacked datafile_XXX.xml (<list>).
+                        var srcIn = LocalfileTranslation.LoadMergeInput(source);
+                        var tgtIn = LocalfileTranslation.LoadMergeInput(target);
+                        var merged = LocalfileTranslation.MergeByAlias(tgtIn.Entries, srcIn.Entries, out var st, fuzzy);
+                        LocalfileTranslation.SaveMergeOutput(outPath, tgtIn, merged);
                         count = merged.Count;
                         mergedHits = st.Merged;
                         structMismatch = st.StructureMismatched;
                         noAlias = st.NoAliasMatch;
+                        fuzzyMatched = st.FuzzyMatched;
+                        fuzzyRules = st.FuzzyRuleSummary ?? "";
+                        srcFmt = srcIn.Kind == "table" ? "table id=" + srcIn.TableId : "translation XML";
+                        tgtFmt = tgtIn.Kind == "table" ? "table id=" + tgtIn.TableId : "translation XML";
+                        tgtTableId = tgtIn.TableId;
                         AutoTranslateService.CountMergeGaps(merged, out filled, out gaps, out empty);
                     });
                     _txtTargetXml.Text = outPath;
                     Log("Merged " + count + " entries → " + outPath);
+                    Log("  source: " + srcFmt + "   target: " + tgtFmt
+                        + (tgtTableId >= 0 ? "   (output keeps target table id=" + tgtTableId + ")" : ""));
                     Log("  merged by alias (target markup kept): " + mergedHits);
+                    if (fuzzy)
+                    {
+                        Log("  merged via 1-token alias rename: " + fuzzyMatched);
+                        if (!string.IsNullOrEmpty(fuzzyRules))
+                        {
+                            Log("  rename rules encountered:");
+                            foreach (var line in fuzzyRules.Split('\n'))
+                            {
+                                Log("    " + line.Trim());
+                            }
+                        }
+                    }
                     if (structMismatch > 0)
                     {
                         Log("  structure mismatched (kept target original, icon IDs preserved): " + structMismatch);
@@ -453,7 +488,14 @@ namespace LegacyBin
                         Log("  empty original: " + empty);
                     }
                     string msg = "Merge complete.\n" + outPath
+                        + "\n\nSource: " + srcFmt
+                        + "\nTarget: " + tgtFmt
+                        + (tgtTableId >= 0
+                            ? "\nOutput keeps the target table structure and ids (datafile_"
+                                + tgtTableId.ToString("000") + ")."
+                            : "")
                         + "\n\nMerged by alias: " + mergedHits
+                        + (fuzzy ? "\nMerged via 1-token alias rename: " + fuzzyMatched : "")
                         + (structMismatch > 0
                             ? "\nStructure mismatched (target kept, icons preserved): " + structMismatch
                             : "")
@@ -461,7 +503,10 @@ namespace LegacyBin
                         + "\n\nTranslated by alias: " + filled
                         + "\nGaps (alias missing / still orig=repl): " + gaps
                         + (gaps > 0
-                            ? "\n\nNext: click “Fill gaps (auto-translate)” — it will detect the language pair from the translated rows and only translate the gaps."
+                            ? (tgtTableId >= 0
+                                ? "\n\nNext: replace datafile_" + tgtTableId.ToString("000") + ".xml in the unpack folder and Repack,"
+                                    + " or apply a Translation XML into the open bin."
+                                : "\n\nNext: click “Fill gaps (auto-translate)” — it will detect the language pair from the translated rows and only translate the gaps.")
                             : "\n\nNo gaps left to fill.");
                     MessageBox.Show(this, msg, "Merge", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
@@ -692,7 +737,8 @@ namespace LegacyBin
                 bool resplit = _chkResplit.Checked;
                 await Task.Run(() =>
                 {
-                    var entries = LocalfileTranslation.LoadXml(xmlPath);
+                    // Auto-detect: BnsDatTool Translation.xml (<table>) or unpacked datafile_XXX.xml (<list>).
+                    var entries = LocalfileTranslation.LoadEntriesAnyFormat(xmlPath);
                     result = LocalfileTranslation.Apply(_session.Content, entries, tableIndex, resplit);
                 });
                 _session.MarkDirty();
