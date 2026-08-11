@@ -460,6 +460,15 @@ namespace LegacyBin
                     continue;
                 }
 
+                // Final safety: re-escape any bare " / ' / & / < / > that sit outside tags so the
+                // bin never ends up with raw quotes that BNS expects as &quot; / &apos;.
+                translated = TranslationMarkupGuard.NormalizeEntities(translated);
+                if (translated == original)
+                {
+                    result.Unchanged++;
+                    continue;
+                }
+
                 words[1] = translated;
                 // rebuild full word list (preserve extra words beyond 0/1 if any)
                 string[] arr = words.ToArray();
